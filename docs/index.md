@@ -97,3 +97,91 @@ Y también se puede comprobar que efectivamente se ha prohibido el acceso a esta
 desde el archivo /var/log/nginx/error.log:
 
 ![Error.log prohibición de acceso](./images/09error_log_forbidden.png)
+
+## Cuestiones finales
+
+### Cuestión 1
+
+**Supongamos que yo soy el cliente con la IP 172.1.10.15 e intento acceder al directorio "web_muy_guay" de mi sitio web, equivocándome al poner el usuario y contraseña. ¿Podré acceder?¿Por qué?**
+
+```nginx
+    location /web_muy_guay {
+    #...
+    satisfy all;    
+    deny  172.1.10.6;
+    allow 172.1.10.15;
+    allow 172.1.3.14;
+    deny  all;
+    auth_basic "Cuestión final 1";
+    auth_basic_user_file conf/htpasswd;
+}
+```
+
+Por la directiva "satisfy all", el usuario tendrá que cumplir con todas las reglas de acceso; 
+por una parte, lo tiene permitido por la directiva "allow 172.1.10.15", pero también está 
+obligado a autenticarse según los credenciales almacenados en "conf/htpasswd".
+
+### Cuestión 2
+
+**Supongamos que yo soy el cliente con la IP 172.1.10.15 e intento acceder al directorio web_muy_guay de mi sitio web, introduciendo correctamente usuari y contraseña. ¿Podré acceder?¿Por qué?**
+
+```nginx
+    location /web_muy_guay {
+    #...
+    satisfy all;    
+    deny  all;
+    deny  172.1.10.6;
+    allow 172.1.10.15;
+    allow 172.1.3.14;
+
+    auth_basic "Cuestión final 2: The revenge";
+    auth_basic_user_file conf/htpasswd;
+}
+```
+
+En este caso, el usuario tampoco podrá acceder, ya que como la directiva "deny all" se 
+evalúa antes que "allow 172.1.10.15" y que la directiva de autenticación, el servidor 
+le denegará el acceso.
+
+### Cuestión 3
+
+**Supongamos que yo soy el cliente con la IP 172.1.10.15 e intento acceder al directorio web_muy_guay de mi sitio web, introduciendo correctamente usuario y contraseña. ¿Podré acceder?¿Por qué?**
+
+```nginx
+    location /web_muy_guay {
+    #...
+    satisfy any;    
+    deny  172.1.10.6;
+    deny 172.1.10.15;
+    allow 172.1.3.14;
+
+    auth_basic "Cuestión final 3: The final combat";
+    auth_basic_user_file conf/htpasswd;
+}
+```
+
+Tampoco le será posible al usuario acceder, ya que se le está denegando el acceso 
+explícitamente a su IP con la directiva "deny 172.1.10.15".
+
+### Cuestión 4
+
+**Supongamos que quiero restringir el acceso al directorio de proyectos porque es muy secreto, eso quiere decir añadir autenticación básica a la URL:Proyectos. Completa la configuración para conseguirlo:**
+
+```nginx
+    server {
+        listen 80;
+        listen [::]:80;
+        root /var/www/freewebsitetemplates.com/preview/space-science;
+        index index.html index.htm index.nginx-debian.html;
+        server_name freewebsitetemplates.com www.freewebsitetemplates.com;
+        location   {
+
+            try_files $uri $uri/ =404;
+        }
+        location   /proyectos   {
+            auth_basic "Cuestión final 3: The final combat";
+            auth_basic_user_file conf/htpasswd;
+            try_files $uri $uri/ =404;
+        }
+    }
+```
